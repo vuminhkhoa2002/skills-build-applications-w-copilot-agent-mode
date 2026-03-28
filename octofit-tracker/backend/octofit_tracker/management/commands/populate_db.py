@@ -98,10 +98,10 @@ class Command(BaseCommand):
                 {'user': 'alice', 'type': 'hiking', 'duration': 90, 'calories': 550, 'date': datetime.now() - timedelta(days=4)},
             ]
 
-            activity_count = 0
+            activity_count = len(activities_sample)
             for activity_data in activities_sample:
                 user = User.objects.get(username=activity_data['user'])
-                activity, created = Activity.objects.get_or_create(
+                activity, created = Activity.objects.update_or_create(
                     user=user,
                     activity_type=activity_data['type'],
                     activity_date=activity_data['date'],
@@ -110,9 +110,8 @@ class Command(BaseCommand):
                         'calories_burned': activity_data['calories'],
                     }
                 )
-                if created:
-                    activity_count += 1
-                    self.stdout.write(f"  Created activity: {user.first_name} - {activity.get_activity_type_display()} ({activity.duration}min, {activity.calories_burned} cal)")
+                activity_type_display = activity.get_activity_type_display() if hasattr(activity, 'get_activity_type_display') else activity_data['type']
+                self.stdout.write(f"  Created activity: {user.first_name} - {activity_type_display} ({activity.duration}min, {activity.calories_burned} cal)")
 
             self.stdout.write(self.style.SUCCESS(f'✓ {activity_count} test activities created and saved'))
 
