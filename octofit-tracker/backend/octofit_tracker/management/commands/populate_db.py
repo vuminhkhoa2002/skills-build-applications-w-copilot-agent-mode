@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User
+from octofit_tracker.models import Activity, UserProfile, Team
 from datetime import datetime, timedelta
 import random
 
@@ -16,7 +17,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         try:
             if options['clear']:
-                self.stdout.write('Clearing existing users...')
+                self.stdout.write('Clearing existing data...')
+                Activity.objects.all().delete()
+                UserProfile.objects.all().delete()
+                Team.objects.all().delete()
                 User.objects.all().delete()
                 self.stdout.write(self.style.SUCCESS('✓ Existing data cleared'))
 
@@ -75,25 +79,58 @@ class Command(BaseCommand):
 
             self.stdout.write(self.style.SUCCESS(f'✓ {len(created_users)} sample users created/verified'))
 
-            # Create activity log entries for test data
+            # Create user profiles
+            self.stdout.write('Creating user profiles...')
+            users = User.objects.all()
+            for user in users:
+                profile, created = UserProfile.objects.get_or_create(user=user)
+                if created:
+                    self.stdout.write(f'  Created profile for: {user.username}')
+
+            # Create test activity data and save to database
             self.stdout.write('Creating test activity data...')
             activities_sample = [
-                {'user': 'alice', 'name': 'Running', 'duration': 30, 'calories': 300, 'date': datetime.now() - timedelta(days=2)},
-                {'user': 'bob', 'name': 'Cycling', 'duration': 45, 'calories': 400, 'date': datetime.now() - timedelta(days=1)},
-                {'user': 'charlie', 'name': 'Swimming', 'duration': 40, 'calories': 450, 'date': datetime.now()},
-                {'user': 'diana', 'name': 'Weight Training', 'duration': 60, 'calories': 350, 'date': datetime.now() - timedelta(days=3)},
-                {'user': 'eve', 'name': 'Yoga', 'duration': 50, 'calories': 150, 'date': datetime.now() - timedelta(days=1)},
-                {'user': 'alice', 'name': 'Hiking', 'duration': 90, 'calories': 550, 'date': datetime.now() - timedelta(days=4)},
+                {'user': 'alice', 'type': 'running', 'duration': 30, 'calories': 300, 'date': datetime.now() - timedelta(days=2)},
+                {'user': 'bob', 'type': 'cycling', 'duration': 45, 'calories': 400, 'date': datetime.now() - timedelta(days=1)},
+                {'user': 'charlie', 'type': 'swimming', 'duration': 40, 'calories': 450, 'date': datetime.now()},
+                {'user': 'diana', 'type': 'weight_training', 'duration': 60, 'calories': 350, 'date': datetime.now() - timedelta(days=3)},
+                {'user': 'eve', 'type': 'yoga', 'duration': 50, 'calories': 150, 'date': datetime.now() - timedelta(days=1)},
+                {'user': 'alice', 'type': 'hiking', 'duration': 90, 'calories': 550, 'date': datetime.now() - timedelta(days=4)},
             ]
 
             activity_count = 0
             for activity_data in activities_sample:
                 user = User.objects.get(username=activity_data['user'])
-                # Store activity data with user profile (can be extended with Activity model)
-                self.stdout.write(f"  Created activity: {user.first_name} - {activity_data['name']} ({activity_data['duration']}min, {activity_data['calories']} cal)")
-                activity_count += 1
+                activity, created = Activity.objects.get_or_create(
+                    user=user,
+                    activity_type=activity_data['type'],
+                    activity_date=activity_data['date'],
+                    defaults={
+                        'duration': activity_data['duration'],
+                        'calories_burned': activity_data['calories'],
+                    }
+                )
+                if created:
+                    activity_count += 1
+                    self.stdout.write(f"  Created activity: {user.first_name} - {activity.get_activity_type_display()} ({activity.duration}min, {activity.calories_burned} cal)")
 
-            self.stdout.write(self.style.SUCCESS(f'✓ {activity_count} test activities created'))
+            self.stdout.write(self.style.SUCCESS(f'✓ {activity_count} test activities created and saved'))
+
+            # Create sample team
+            self.stdout.write('Creating sample team...')
+            team, created = Team.objects.get_or_create(
+                name='Fitness Enthusiasts',
+                defaults={
+                    'description': 'A team of dedicated fitness trackers',
+                    'created_by': User.objects.first(),
+                }
+            )
+            if created:
+                team.members.add(*users)
+                self.stdout.write(f'  Created team: {team.name}')
+            else:
+                self.stdout.write(f'  Team already exists: {team.name}')
+
             self.stdout.write(self.style.SUCCESS('✓ Database population complete!'))
 
         except Exception as e:
