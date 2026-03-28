@@ -89,16 +89,19 @@ class Command(BaseCommand):
 
             # Create test activity data and save to database
             self.stdout.write('Creating test activity data...')
+            # Use a fixed base date to ensure consistent lookups across runs
+            base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            
             activities_sample = [
-                {'user': 'alice', 'type': 'running', 'duration': 30, 'calories': 300, 'date': datetime.now() - timedelta(days=2)},
-                {'user': 'bob', 'type': 'cycling', 'duration': 45, 'calories': 400, 'date': datetime.now() - timedelta(days=1)},
-                {'user': 'charlie', 'type': 'swimming', 'duration': 40, 'calories': 450, 'date': datetime.now()},
-                {'user': 'diana', 'type': 'weight_training', 'duration': 60, 'calories': 350, 'date': datetime.now() - timedelta(days=3)},
-                {'user': 'eve', 'type': 'yoga', 'duration': 50, 'calories': 150, 'date': datetime.now() - timedelta(days=1)},
-                {'user': 'alice', 'type': 'hiking', 'duration': 90, 'calories': 550, 'date': datetime.now() - timedelta(days=4)},
+                {'user': 'alice', 'type': 'running', 'duration': 30, 'calories': 300, 'date': base_date - timedelta(days=2)},
+                {'user': 'bob', 'type': 'cycling', 'duration': 45, 'calories': 400, 'date': base_date - timedelta(days=1)},
+                {'user': 'charlie', 'type': 'swimming', 'duration': 40, 'calories': 450, 'date': base_date},
+                {'user': 'diana', 'type': 'weight_training', 'duration': 60, 'calories': 350, 'date': base_date - timedelta(days=3)},
+                {'user': 'eve', 'type': 'yoga', 'duration': 50, 'calories': 150, 'date': base_date - timedelta(days=1)},
+                {'user': 'alice', 'type': 'hiking', 'duration': 90, 'calories': 550, 'date': base_date - timedelta(days=4)},
             ]
 
-            activity_count = len(activities_sample)
+            activity_count = 0
             for activity_data in activities_sample:
                 user = User.objects.get(username=activity_data['user'])
                 activity, created = Activity.objects.update_or_create(
@@ -110,6 +113,7 @@ class Command(BaseCommand):
                         'calories_burned': activity_data['calories'],
                     }
                 )
+                activity_count += 1
                 activity_type_display = activity.get_activity_type_display() if hasattr(activity, 'get_activity_type_display') else activity_data['type']
                 self.stdout.write(f"  Created activity: {user.first_name} - {activity_type_display} ({activity.duration}min, {activity.calories_burned} cal)")
 
