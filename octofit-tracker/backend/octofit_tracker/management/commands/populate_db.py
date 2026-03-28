@@ -101,23 +101,31 @@ class Command(BaseCommand):
                 {'user': 'alice', 'type': 'hiking', 'duration': 90, 'calories': 550, 'date': base_date - timedelta(days=4)},
             ]
 
+            # Clear previous test activities to ensure exactly 6 exist
+            Activity.objects.filter(activity_type__in=['running', 'cycling', 'swimming', 'weight_training', 'yoga', 'hiking']).delete()
+            
             activity_count = 0
             for activity_data in activities_sample:
                 user = User.objects.get(username=activity_data['user'])
-                activity, created = Activity.objects.update_or_create(
+                activity = Activity(
                     user=user,
                     activity_type=activity_data['type'],
                     activity_date=activity_data['date'],
-                    defaults={
-                        'duration': activity_data['duration'],
-                        'calories_burned': activity_data['calories'],
-                    }
+                    duration=activity_data['duration'],
+                    calories_burned=activity_data['calories'],
                 )
+                activity.save()
                 activity_count += 1
-                activity_type_display = activity.get_activity_type_display() if hasattr(activity, 'get_activity_type_display') else activity_data['type']
+                activity_type_display = activity.get_activity_type_display()
                 self.stdout.write(f"  Created activity: {user.first_name} - {activity_type_display} ({activity.duration}min, {activity.calories_burned} cal)")
 
             self.stdout.write(self.style.SUCCESS(f'✓ {activity_count} test activities created and saved'))
+
+            # Verify activities were saved to database
+            total_activities = Activity.objects.count()
+            self.stdout.write(f'  Database verification: {total_activities} total activities in database')
+            if total_activities < 6:
+                self.stdout.write(self.style.WARNING(f'  Warning: Expected 6 activities, found {total_activities}'))
 
             # Create sample team
             self.stdout.write('Creating sample team...')
